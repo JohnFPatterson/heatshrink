@@ -425,9 +425,9 @@ static void do_indexing(heatshrink_encoder *hse) {
     int16_t * const index = hsi->index;
 
     const uint16_t input_offset = get_input_offset(hse);
-    const uint16_t end = input_offset + hse->input_size;
+    const uint16_t end = (input_offset - 1) + hse->input_size;
 
-    for (uint16_t i=0; i<end; i++) {
+    for (uint16_t i=0; i<=end; i++) {
         uint8_t v = data[i];
         int16_t lv = last[v];
         index[i] = lv;
