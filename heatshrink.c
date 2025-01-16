@@ -29,7 +29,7 @@ fprintf(stderr, "Undefined error: %d\n", errno); \
 exit(retval); \
 } while(0)
 #else
-#include <err.h>
+//#include <err.h>
 #define HEATSHRINK_ERR(...) err(__VA_ARGS__)
 #endif
 
