@@ -451,7 +451,7 @@ static int can_take_byte(output_info *oi) {
 static uint16_t find_longest_match(heatshrink_encoder *hse, uint16_t start,
         uint16_t end, const uint16_t maxlen, uint16_t *match_length) {
     LOG("-- scanning for match of buf[%u:%u] between buf[%u:%u] (max %u bytes)\n",
-        end, end + maxlen, start, end + maxlen - 1, maxlen);
+        end, end + maxlen, start, end - 1, maxlen);
     uint8_t *buf = hse->buffer;
 
     uint16_t match_maxlen = 0;
