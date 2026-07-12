@@ -55,11 +55,13 @@ typedef struct {
     uint16_t match_length;
     uint16_t match_pos;
     uint16_t outgoing_bits;     /* enqueued outgoing bits */
+    uint16_t processed;
     uint8_t outgoing_bits_count;
     uint8_t flags;
     uint8_t state;              /* current state machine node */
     uint8_t current_byte;       /* current byte of output */
     uint8_t bit_index;          /* current bit index */
+    uint8_t no_initial;         /* avoid references to initial window */
 #if HEATSHRINK_DYNAMIC_ALLOC
     uint8_t window_sz2;         /* 2^n size of window */
     uint8_t lookahead_sz2;      /* 2^n size of lookahead */
@@ -82,6 +84,8 @@ typedef struct {
  * Returns NULL on error. */
 heatshrink_encoder *heatshrink_encoder_alloc(uint8_t window_sz2,
     uint8_t lookahead_sz2);
+heatshrink_encoder *heatshrink_encoder_alloc_z(uint8_t window_sz2,
+    uint8_t lookahead_sz2, uint8_t no_initial);
 
 /* Free an encoder. */
 void heatshrink_encoder_free(heatshrink_encoder *hse);

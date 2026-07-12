@@ -63,6 +63,7 @@ static void usage(void) {
         " -e        encode (compress, default)\n"
         " -d        decode (decompress)\n"
         " -v        verbose (print input & output sizes, compression ratio, etc.)\n"
+        " -z        avoid references to initial window\n"
         "\n"
         " -w SIZE   Base-2 log of LZSS sliding window size\n"
         "\n"
@@ -102,6 +103,7 @@ typedef struct {
     size_t decoder_input_buffer_size;
     size_t buffer_size;
     uint8_t verbose;
+    uint8_t no_initial;
     Operation cmd;
     char *in_fname;
     char *out_fname;
@@ -280,7 +282,7 @@ static int encoder_sink_read(config *cfg, heatshrink_encoder *hse,
 static int encode(config *cfg) {
     uint8_t window_sz2 = cfg->window_sz2;
     size_t window_sz = 1 << window_sz2; 
-    heatshrink_encoder *hse = heatshrink_encoder_alloc(window_sz2, cfg->lookahead_sz2);
+    heatshrink_encoder *hse = heatshrink_encoder_alloc_z(window_sz2, cfg->lookahead_sz2, cfg->no_initial);
     if (hse == NULL) { die("failed to init encoder: bad settings"); }
     ssize_t read_sz = 0;
     io_handle *in = cfg->in;
@@ -401,11 +403,12 @@ static void proc_args(config *cfg, int argc, char **argv) {
     cfg->decoder_input_buffer_size = DEF_DECODER_INPUT_BUFFER_SIZE;
     cfg->cmd = OP_ENC;
     cfg->verbose = 0;
+    cfg->no_initial = 0;
     cfg->in_fname = "-";
     cfg->out_fname = "-";
 
     int a = 0;
-    while ((a = getopt(argc, argv, "hedi:w:l:v")) != -1) {
+    while ((a = getopt(argc, argv, "hedi:w:l:vz")) != -1) {
         switch (a) {
         case 'h':               /* help */
             usage();
@@ -424,6 +427,9 @@ static void proc_args(config *cfg, int argc, char **argv) {
             break;
         case 'v':               /* verbosity++ */
             cfg->verbose++;
+            break;
+        case 'z':               /* avoid zeroed matches before data start */
+            cfg->no_initial = 1;
             break;
         case '?':               /* unknown argument */
         default:

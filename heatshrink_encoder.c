@@ -69,6 +69,11 @@ static void push_literal_byte(heatshrink_encoder *hse, output_info *oi);
 #if HEATSHRINK_DYNAMIC_ALLOC
 heatshrink_encoder *heatshrink_encoder_alloc(uint8_t window_sz2,
         uint8_t lookahead_sz2) {
+    return heatshrink_encoder_alloc_z(window_sz2, lookahead_sz2, 0);
+}
+
+heatshrink_encoder *heatshrink_encoder_alloc_z(uint8_t window_sz2,
+        uint8_t lookahead_sz2, uint8_t no_initial) {
     if ((window_sz2 < HEATSHRINK_MIN_WINDOW_BITS) ||
         (window_sz2 > HEATSHRINK_MAX_WINDOW_BITS) ||
         (lookahead_sz2 < HEATSHRINK_MIN_LOOKAHEAD_BITS) ||
@@ -86,6 +91,7 @@ heatshrink_encoder *heatshrink_encoder_alloc(uint8_t window_sz2,
     if (hse == NULL) { return NULL; }
     hse->window_sz2 = window_sz2;
     hse->lookahead_sz2 = lookahead_sz2;
+    hse->no_initial = no_initial;
     heatshrink_encoder_reset(hse);
 
 #if HEATSHRINK_USE_INDEX
@@ -125,6 +131,7 @@ void heatshrink_encoder_reset(heatshrink_encoder *hse) {
     hse->bit_index = 0x80;
     hse->current_byte = 0x00;
     hse->match_length = 0;
+    hse->processed = 0;
 
     hse->outgoing_bits = 0x0000;
     hse->outgoing_bits_count = 0;
@@ -257,6 +264,15 @@ HSE_finish_res heatshrink_encoder_finish(heatshrink_encoder *hse) {
     return hse->state == HSES_DONE ? HSER_FINISH_DONE : HSER_FINISH_MORE;
 }
 
+static void add_to_processed(heatshrink_encoder *hse, uint16_t length) {
+    uint16_t old = hse->processed;
+    uint16_t new = old + length;
+    if (new < old) {
+        new = 0xFFFF; /* saturate */
+    }
+    hse->processed = new;
+}
+
 static HSE_state st_step_search(heatshrink_encoder *hse) {
     uint16_t window_length = get_input_buffer_size(hse);
     uint16_t lookahead_sz = get_lookahead_size(hse);
@@ -274,7 +290,12 @@ static HSE_state st_step_search(heatshrink_encoder *hse) {
 
     uint16_t input_offset = get_input_offset(hse);
     uint16_t end = input_offset + msi;
-    uint16_t start = end - window_length;
+    uint16_t start;
+    if (hse->no_initial && hse->processed < window_length) {
+        start = end - hse->processed;
+    } else {
+        start = end - window_length;
+    }
 
     uint16_t max_possible = lookahead_sz;
     if (hse->input_size - msi < lookahead_sz) {
@@ -289,11 +310,13 @@ static HSE_state st_step_search(heatshrink_encoder *hse) {
         LOG("ss Match not found\n");
         hse->match_scan_index++;
         hse->match_length = 0;
+        add_to_processed(hse, 1);
         return HSES_YIELD_TAG_BIT;
     } else {
         LOG("ss Found match of %d bytes at %d\n", match_length, match_pos);
         hse->match_pos = match_pos;
         hse->match_length = match_length;
+        add_to_processed(hse, match_length);
         ASSERT(match_pos <= 1 << HEATSHRINK_ENCODER_WINDOW_BITS(hse) /*window_length*/);
 
         return HSES_YIELD_TAG_BIT;
