@@ -428,7 +428,7 @@ static void proc_args(config *cfg, int argc, char **argv) {
         case 'v':               /* verbosity++ */
             cfg->verbose++;
             break;
-        case 'z':               /* verbosity++ */
+        case 'z':               /* avoid zeroed matches before data start */
             cfg->no_initial = 1;
             break;
         case '?':               /* unknown argument */
