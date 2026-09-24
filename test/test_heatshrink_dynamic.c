@@ -950,12 +950,33 @@ TEST sixty_four_k(void) {
     return compress_and_expand_and_check(input, size, &cfg);
 }
 
+TEST max_window_size_indexing_should_not_overflow(void) {
+    /* Regression: do_indexing() walked the input buffer with a signed
+     * 16-bit loop counter. With the maximum window size (2^15 bytes),
+     * filling the buffer makes the counter need to reach 32768, which
+     * doesn't fit in an int16_t; incrementing it past 32767 wraps to a
+     * negative value, and the loop keeps going with a negative index
+     * into the buffer and the index table. That corrupts memory well
+     * past the end of the index array instead of terminating the loop. */
+    uint32_t size = 1 << 15;
+    uint32_t seed = 1;
+    uint8_t input[size];
+    fill_with_pseudorandom_letters(input, size, seed);
+    cfg_info cfg;
+    cfg.log_lvl = 0;
+    cfg.window_sz2 = 15;
+    cfg.lookahead_sz2 = 4;
+    cfg.decoder_input_buffer_size = 64;
+    return compress_and_expand_and_check(input, size, &cfg);
+}
+
 SUITE(regression) {
     // Regressions from fuzzing
     RUN_TEST(small_input_buffer_should_not_impact_decoder_correctness);
     RUN_TEST(regression_backreference_counters_should_not_roll_over);
     RUN_TEST(regression_index_fail);
     RUN_TEST(sixty_four_k);
+    RUN_TEST(max_window_size_indexing_should_not_overflow);
 }
 
 SUITE(integration) {
