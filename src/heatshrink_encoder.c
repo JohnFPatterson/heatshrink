@@ -428,14 +428,21 @@ static void do_indexing(heatshrink_encoder *hse) {
     uint8_t * const data = hse->buffer;
     int16_t * const index = hsi->index;
 
+    /* input_offset and hse->input_size are each at most the window size
+     * (1 << HEATSHRINK_MAX_WINDOW_BITS == 32768), so their sum can be as
+     * large as 65536. That doesn't fit in a uint16_t, so end (and the loop
+     * counter, which must be able to reach it) need a wider type; using
+     * uint16_t for either wraps to 0 at the maximum window size, which
+     * skips indexing entirely and leaves the index table full of stale
+     * data that can send find_longest_match into an unbounded loop. */
     const uint16_t input_offset = get_input_offset(hse);
-    const uint16_t end = input_offset + hse->input_size;
+    const uint32_t end = (uint32_t)input_offset + hse->input_size;
 
-    for (int16_t i = 0; i < end; i++) {
+    for (uint32_t i = 0; i < end; i++) {
         uint8_t v = data[i];
         int16_t lv = last[v];
         index[i] = lv;
-        last[v] = i;
+        last[v] = (int16_t)i;
     }
 #else
     (void)hse;
