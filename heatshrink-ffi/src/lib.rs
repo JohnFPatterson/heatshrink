@@ -7,52 +7,69 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::cell::RefCell;
 
 use heatshrink_core::internals::{DecoderState, EncoderState};
 use heatshrink_core::{Error, SinkFull};
 use libc::c_int;
 
-static TRACE_ON: AtomicBool = AtomicBool::new(false);
-
 struct TraceState {
+    on: bool,
     fail_on: u32,
     allocs: u32,
     log: Vec<(u8, usize)>,
 }
 
-static TRACE: Mutex<TraceState> = Mutex::new(TraceState {
-    fail_on: 0,
-    allocs: 0,
-    log: Vec::new(),
-});
+// Per thread so parallel tests that allocate outside a trace do not append
+// to another thread's log. The C hook-trace binary is single-threaded.
+thread_local! {
+    static TRACE: RefCell<TraceState> = const {
+        RefCell::new(TraceState {
+            on: false,
+            fail_on: 0,
+            allocs: 0,
+            log: Vec::new(),
+        })
+    };
+}
 
 /// Record malloc/free size and order. `fail_on` is 1-based; 0 disables failures.
 /// Not a C export. Used to diff allocator behavior against the C library.
 pub fn testing_trace_reset(fail_on: u32) {
-    TRACE_ON.store(true, Ordering::SeqCst);
-    let mut guard = TRACE.lock().unwrap_or_else(|e| e.into_inner());
-    guard.fail_on = fail_on;
-    guard.allocs = 0;
-    guard.log.clear();
+    TRACE.with(|trace| {
+        let mut guard = trace.borrow_mut();
+        guard.on = true;
+        guard.fail_on = fail_on;
+        guard.allocs = 0;
+        guard.log.clear();
+    });
 }
 
 pub fn testing_trace_stop() -> Vec<(u8, usize)> {
-    TRACE_ON.store(false, Ordering::SeqCst);
-    let mut guard = TRACE.lock().unwrap_or_else(|e| e.into_inner());
-    std::mem::take(&mut guard.log)
+    TRACE.with(|trace| {
+        let mut guard = trace.borrow_mut();
+        guard.on = false;
+        std::mem::take(&mut guard.log)
+    })
 }
 
 fn hs_malloc(size: usize) -> *mut libc::c_void {
-    if TRACE_ON.load(Ordering::Relaxed) {
-        let mut guard = TRACE.lock().unwrap_or_else(|e| e.into_inner());
+    let fail = TRACE.with(|trace| {
+        let mut guard = trace.borrow_mut();
+        if !guard.on {
+            return false;
+        }
         guard.allocs = guard.allocs.wrapping_add(1);
         if guard.fail_on != 0 && guard.allocs == guard.fail_on {
             guard.log.push((2, size));
-            return std::ptr::null_mut();
+            true
+        } else {
+            guard.log.push((1, size));
+            false
         }
-        guard.log.push((1, size));
+    });
+    if fail {
+        return std::ptr::null_mut();
     }
     // SAFETY: libc::malloc is the same allocator the C library uses. A null
     // return is propagated to the caller, matching `HEATSHRINK_MALLOC`.
@@ -60,10 +77,12 @@ fn hs_malloc(size: usize) -> *mut libc::c_void {
 }
 
 fn hs_free(ptr: *mut libc::c_void, size: usize) {
-    if TRACE_ON.load(Ordering::Relaxed) {
-        let mut guard = TRACE.lock().unwrap_or_else(|e| e.into_inner());
-        guard.log.push((0, size));
-    }
+    TRACE.with(|trace| {
+        let mut guard = trace.borrow_mut();
+        if guard.on {
+            guard.log.push((0, size));
+        }
+    });
     // SAFETY: `ptr` came from hs_malloc, or this is the matching
     // HEATSHRINK_FREE of that block. `size` is only logged.
     unsafe { libc::free(ptr) }
