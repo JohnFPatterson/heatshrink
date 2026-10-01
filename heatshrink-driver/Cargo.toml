@@ -1,0 +1,13 @@
+[package]
+name = "heatshrink-driver"
+version = "0.4.1"
+edition = "2021"
+license = "ISC"
+publish = false
+
+[[bin]]
+name = "heatshrink-driver"
+path = "src/main.rs"
+
+[dependencies]
+heatshrink-core = { path = "../heatshrink-core" }

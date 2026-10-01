@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": "./.cursor/hooks/c-rust-parity/parity_gate.py",
+        "timeout": 900,
+        "loop_limit": 5
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "./.cursor/hooks/c-rust-parity/parity_gate.py --event subagentStop",
+        "timeout": 900,
+        "loop_limit": 5
+      }
+    ]
+  }
+}

@@ -120,3 +120,53 @@ libheatshrink_dynamic.a: ${DYNAMIC_OBJS}
 *.os: Makefile *.h
 *.od: Makefile *.h
 
+# Differential oracle (dynamic API). Linked via a temp name so a running
+# process is not overwritten in place.
+build/oracle: tools/heatshrink-oracle.c heatshrink_encoder.c heatshrink_decoder.c \
+		heatshrink_encoder.h heatshrink_decoder.h heatshrink_common.h heatshrink_config.h
+	mkdir -p build
+	$(CC) -std=c99 -O2 -g -Wall -Wextra -DHEATSHRINK_DYNAMIC_ALLOC=1 -I. \
+		-o build/oracle.tmp tools/heatshrink-oracle.c \
+		heatshrink_encoder.c heatshrink_decoder.c
+	mv build/oracle.tmp build/oracle
+
+# C oracle plus the Rust driver. Cargo output stays in target/.
+parity-drivers: build/oracle
+	cargo build --release --target-dir target -p heatshrink-driver
+
+build/oracle-ffi: tools/heatshrink-oracle.c target/release/libheatshrink_ffi.a
+	mkdir -p build
+	$(CC) -std=c99 -O2 -g -I. -o build/oracle-ffi.tmp tools/heatshrink-oracle.c \
+		target/release/libheatshrink_ffi.a -lpthread -ldl -lm
+	mv build/oracle-ffi.tmp build/oracle-ffi
+
+target/release/libheatshrink_ffi.a:
+	cargo build --release --target-dir target -p heatshrink-ffi
+
+# Same hook program, once against the C library and once against heatshrink-ffi.
+build/hook-trace-c: tools/hook-trace.c heatshrink_encoder.c heatshrink_decoder.c
+	mkdir -p build
+	$(CC) -std=c99 -O2 -g -I. -o build/hook-trace-c.tmp tools/hook-trace.c \
+		heatshrink_encoder.c heatshrink_decoder.c -Wl,--wrap=malloc -Wl,--wrap=free
+	mv build/hook-trace-c.tmp build/hook-trace-c
+
+build/hook-trace-ffi: tools/hook-trace.c target/release/libheatshrink_ffi.a
+	mkdir -p build
+	$(CC) -std=c99 -O2 -g -I. -o build/hook-trace-ffi.tmp tools/hook-trace.c \
+		target/release/libheatshrink_ffi.a -lpthread -ldl -lm \
+		-Wl,--wrap=malloc -Wl,--wrap=free
+	mv build/hook-trace-ffi.tmp build/hook-trace-ffi
+
+hook-trace: build/hook-trace-c build/hook-trace-ffi
+	mkdir -p build
+	./build/hook-trace-c > build/hook-trace-c.out
+	./build/hook-trace-ffi > build/hook-trace-ffi.out
+	diff -u build/hook-trace-c.out build/hook-trace-ffi.out
+
+build/asan/oracle: tools/heatshrink-oracle.c heatshrink_encoder.c heatshrink_decoder.c
+	mkdir -p build/asan
+	gcc -std=c99 -g -fsanitize=address,undefined -fno-omit-frame-pointer -I. \
+		-DHEATSHRINK_DYNAMIC_ALLOC=1 -o build/asan/oracle.tmp \
+		tools/heatshrink-oracle.c heatshrink_encoder.c heatshrink_decoder.c
+	mv build/asan/oracle.tmp build/asan/oracle
+

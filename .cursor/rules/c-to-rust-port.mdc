@@ -1,0 +1,36 @@
+---
+description: C-to-Rust library port in progress — safe core crate, thin C ABI shim, match C quirks except SonarQube security findings, prove with a C oracle.
+globs: "**/*.{rs,toml,c,h,md}"
+alwaysApply: true
+---
+
+# C-to-Rust port (copy into the target repo)
+
+Short invariants while a port is in progress. Enable `alwaysApply` only during the port; turn off after ship.
+
+Full playbook: skill `port-c-library-to-rust`. Open its `reference/` annexes for procedure.
+
+## MUST
+
+- `heatshrink-core`: all logic, `#![forbid(unsafe_code)]`. `heatshrink-ffi`: thin C ABI only (`#[repr(C)]`, header symbols, `staticlib` + `cdylib`). FFI is the only crate with `unsafe`; every block has `SAFETY:`.
+- Keep original `*.c` / `*.h` as oracle. Do not patch C for Sonar.
+- Match C including quirks, except Sonar SECURITY/hotspots (`PE-NNN` in Rust) and approved `CH-NNN`.
+- Classify the library’s observable surface; drivers implement `tools/DRIVER_FORMAT.md` with `--sections`. Parity is byte-identical driver stdout/exit — not a fixed parse/pretty checklist.
+- Sonar MCP: scan library C and new Rust. Classify C; mitigate every open Rust SECURITY/hotspot (or approved won't-fix in `MIGRATION.md`). CI must not fail on legacy C SECURITY alone.
+- Malformed input → `Result` / `Error`; no panic on untrusted data.
+- Port existing C tests case-for-case. Public-API suites vs C and `heatshrink-ffi`; white-box → core `internals`; name every removed case.
+- Baseline pin before Rust (`parity_gate.py --force`). Fixtures `-text` in `.gitattributes`.
+- `.cursor/parity.json`: `build` builds both sides; Cargo `--target-dir target`; `report_dir` under `build/`. Mark a module `ready` only after a manual `--module` run is identical.
+- Propose every `PE-NNN` / `CH-NNN` before adding. One pinning/`exceptions` test per row.
+- ASan on the C oracle over every fixture. Hook-trace if hooks/callbacks exist.
+- Export every in-scope public header function from `heatshrink-ffi` (discover this header’s declaration pattern).
+- `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --all --check`. FFI denies undocumented unsafe blocks / `unsafe_op_in_unsafe_fn`.
+
+## MUST NOT
+
+- Put library logic in the FFI crate; invent a C-incompatible API.
+- “Fix” non-security quirks; allowlist unlisted driver diffs; skip Sonar; leave open Rust SECURITY findings.
+- Patch C, edit fixtures/oracle/gate state, or loosen a ready module to force a pass.
+- Mirror unbounded C recursion on Rust test stacks.
+- Add provenance comments (`// OWNER: …`).
+- Put Rust-only Sonar findings or non-Sonar changes in `PARITY_EXCEPTIONS.md`.

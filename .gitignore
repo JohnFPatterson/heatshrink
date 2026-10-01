@@ -9,3 +9,10 @@ test_heatshrink_static
 *.dSYM
 *.exe
 benchmark_out/
+/build/
+/target/
+/parity-report.md
+/parity-report.json
+/parity-report.modules.md
+/parity-report.modules.json
+

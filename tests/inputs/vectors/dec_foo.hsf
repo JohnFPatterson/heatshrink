@@ -1,0 +1,9 @@
+HSF1
+alloc=dyn
+window=7
+lookahead=3
+input_buffer=256
+sink_chunk=0
+poll_chunk=0
+
+і[на

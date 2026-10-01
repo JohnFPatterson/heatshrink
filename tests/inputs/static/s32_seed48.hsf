@@ -1,0 +1,9 @@
+HSF1
+alloc=static
+window=8
+lookahead=4
+input_buffer=32
+sink_chunk=0
+poll_chunk=0
+
+iseiseiseieoscqggggggggggggggggg

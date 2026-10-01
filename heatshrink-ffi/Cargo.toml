@@ -1,0 +1,14 @@
+[package]
+name = "heatshrink-ffi"
+version = "0.4.1"
+edition = "2021"
+license = "ISC"
+description = "C ABI for the heatshrink Rust port"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+heatshrink-core = { path = "../heatshrink-core" }
+libc = "0.2"

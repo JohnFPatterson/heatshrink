@@ -1,0 +1,17 @@
+{
+  "$comment": "Commands are argv arrays from the repo root (no shell). {input} = fixture path relative to repo root. The parity gate compares stdout and exit status byte for byte. build runs once per gate run and must build both the C oracle and the Rust driver. Keep --target-dir target. modules omitted for this single-agent port.",
+  "build": ["make", "parity-drivers"],
+  "c_cmd": ["./build/oracle", "{input}"],
+  "rust_cmd": ["./target/release/heatshrink-driver", "{input}"],
+  "input_mode": "arg",
+  "fixtures": ["tests/inputs/**/*"],
+  "report_dir": "build/parity-gate",
+  "oracle_sources": ["*.c", "*.h"],
+  "exceptions_file": "PARITY_EXCEPTIONS.md",
+  "exceptions_rs": ["*-core/tests/exceptions.rs"],
+  "exceptions_test": ["cargo", "test", "-p", "heatshrink-core", "--test", "exceptions", "--target-dir", "target"],
+  "per_run_timeout_s": 30,
+  "build_timeout_s": 600,
+  "compare_stderr": false,
+  "hash_exclude": ["build/**", "target/**"]
+}
