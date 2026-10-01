@@ -120,3 +120,17 @@ libheatshrink_dynamic.a: ${DYNAMIC_OBJS}
 *.os: Makefile *.h
 *.od: Makefile *.h
 
+# Differential oracle (dynamic API). Linked via a temp name so a running
+# process is not overwritten in place.
+build/oracle: tools/heatshrink-oracle.c heatshrink_encoder.c heatshrink_decoder.c \
+		heatshrink_encoder.h heatshrink_decoder.h heatshrink_common.h heatshrink_config.h
+	mkdir -p build
+	$(CC) -std=c99 -O2 -g -Wall -Wextra -DHEATSHRINK_DYNAMIC_ALLOC=1 -I. \
+		-o build/oracle.tmp tools/heatshrink-oracle.c \
+		heatshrink_encoder.c heatshrink_decoder.c
+	mv build/oracle.tmp build/oracle
+
+# C oracle plus the Rust driver. Cargo output stays in target/.
+parity-drivers: build/oracle
+	cargo build --release --target-dir target -p heatshrink-driver
+
