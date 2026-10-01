@@ -1,0 +1,17 @@
+{
+  "$comment": "Copy to .cursor/parity.json. Commands are argv arrays from the repo root (no shell). {input} = fixture path relative to repo root. The parity gate (./.cursor/hooks/c-rust-parity/parity_gate.py) compares stdout and exit status byte for byte. `build` runs once per gate run and must build both the C oracle and the Rust driver (use a Makefile target if needed). Keep `--target-dir target`. Replace {lib}. Omit `modules` for a single-agent port; when present, each module's driver_args are appended to both commands, optional fixtures override top-level globs, and ready may only go false→true. Section names in driver_args must match tools/DRIVER_FORMAT.md for THIS library — do not assume parse/print.",
+  "build": ["cargo", "build", "--release", "--target-dir", "target"],
+  "c_cmd": ["./build/oracle", "{input}"],
+  "rust_cmd": ["./target/release/rust-driver", "{input}"],
+  "input_mode": "arg",
+  "fixtures": ["tests/inputs/**/*"],
+  "report_dir": "build/parity-gate",
+  "oracle_sources": ["*.c", "*.h"],
+  "exceptions_file": "PARITY_EXCEPTIONS.md",
+  "exceptions_rs": ["*-core/tests/exceptions.rs"],
+  "exceptions_test": ["cargo", "test", "-p", "{lib}-core", "--test", "exceptions"],
+  "per_run_timeout_s": 30,
+  "build_timeout_s": 600,
+  "compare_stderr": false,
+  "hash_exclude": ["build/**"]
+}
